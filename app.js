@@ -202,8 +202,12 @@ if (process.env.NODE_ENV === 'development') {
 /**
  * Start Express server.
  */
-app.listen(app.get('port'), () => {
-  console.log(`App is running on http://localhost:${app.get('port')} in ${app.get('env')} mode`);
+// app.listen(app.get('port'), () => {
+//   console.log(`App is running on http://localhost:${app.get('port')} in ${app.get('env')} mode`);
+//   console.log('Press CTRL-C to stop');
+// });
+app.listen(app.get('port'), app.get('host'), () => {
+  console.log(`App is running on ${app.get('host')}:${app.get('port')} in ${app.get('env')} mode`);
   console.log('Press CTRL-C to stop');
 });
 
