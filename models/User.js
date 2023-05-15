@@ -2,7 +2,8 @@ const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
   spotify: String,
-  token: Object,
+  name: String,
+  tokens: Array,
 }, { timestamps: true });
 
 const User = mongoose.model('User', userSchema);

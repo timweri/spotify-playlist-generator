@@ -5,7 +5,6 @@ const tumblr = require('tumblr.js');
 const { Octokit } = require('@octokit/rest');
 const Twitter = require('twitter-lite');
 const stripe = require('stripe')(process.env.STRIPE_SKEY);
-const twilio = require('twilio')(process.env.TWILIO_SID, process.env.TWILIO_TOKEN);
 const paypal = require('paypal-rest-sdk');
 const crypto = require('crypto');
 const lob = require('lob')(process.env.LOB_KEY);

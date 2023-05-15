@@ -1,7 +1,7 @@
 const passport = require('passport');
 const refresh = require('passport-oauth2-refresh');
 const axios = require('axios');
-const { Strategy: SpotifyStrategy } = require('passport-linkedin-oauth2');
+const { Strategy: SpotifyStrategy} = require('passport-spotify');
 const _ = require('lodash');
 const moment = require('moment');
 
@@ -35,61 +35,66 @@ passport.deserializeUser((id, done) => {
 /**
  * Sign in with Spotify.
  */
-passport.use(new SpotifyStrategy({
+const spotifyStrategyConfig = new SpotifyStrategy({
   clientID: process.env.SPOTIFY_CLIENT_ID,
   clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
   callbackURL: `${process.env.BASE_URL}/auth/spotify/callback`,
-  scope: ['r_liteprofile', 'r_emailaddress'],
+  scope: ['playlist-modify-public', 'playlist-modify-private'],
   passReqToCallback: true
-}, (req, accessToken, _, _, profile, done) => {
+}, (req, accessToken, refreshToken, expires_in, profile, done) => {
   User.findOne({ spotify: profile.id }, (err, existingUser) => {
     if (err) { return done(err); }
     if (existingUser) {
-      existingUser.token = ({ kind: 'spotify', accessToken: accessToken});
-      existingUser.
-      return done(null, existingUser);
+      existingUser.tokens.push({ kind: 'spotify', accessToken, refreshToken, accessTokenExpires: moment().add(expires_in, 'seconds').format()});
+      existingUser.name = profile.displayName;
+      existingUser.save((err) => {
+        done(err, existingUser);
+      });
+    } else {
+      const user = new User();
+      user.spotify = profile.id;
+      user.tokens.push({ kind: 'spotify', accessToken, refreshToken, accessTokenExpires: moment().add(expires_in, 'seconds').format()});
+      user.name = profile.displayName;
+      user.save((err) => {
+        done(err, user);
+      });
     }
-    User.findOne({ email: profile.emails[0].value }, (err, existingEmailUser) => {
-      if (err) { return done(err); }
-      if (existingEmailUser) {
-        req.flash('errors', { msg: 'There is already an account using this email address. Sign in to that account and link it with LinkedIn manually from Account Settings.' });
-        done(err);
-      } else {
-        const user = new User();
-        user.linkedin = profile.id;
-        user.tokens.push({ kind: 'linkedin', accessToken });
-        user.email = profile.emails[0].value;
-        user.profile.name = profile.displayName;
-        user.profile.picture = user.profile.picture || profile.photos[3].value;
-        user.save((err) => {
-          done(err, user);
-        });
-      }
-    });
   });
-}));
+});
+passport.use('spotify', spotifyStrategyConfig);
+refresh.use('spotify', spotifyStrategyConfig);
 
 /**
  * Tumblr API OAuth.
  */
-passport.use('tumblr', new OAuthStrategy({
-  requestTokenURL: 'https://www.tumblr.com/oauth/request_token',
-  accessTokenURL: 'https://www.tumblr.com/oauth/access_token',
-  userAuthorizationURL: 'https://www.tumblr.com/oauth/authorize',
-  consumerKey: process.env.TUMBLR_KEY,
-  consumerSecret: process.env.TUMBLR_SECRET,
-  callbackURL: '/auth/tumblr/callback',
-  passReqToCallback: true
-},
-(req, token, tokenSecret, profile, done) => {
-  User.findById(req.user._id, (err, user) => {
-    if (err) { return done(err); }
-    user.tokens.push({ kind: 'tumblr', accessToken: token, tokenSecret });
-    user.save((err) => {
-      done(err, user);
-    });
-  });
-}));
+// passport.use('tumblr', new OAuthStrategy({
+//   requestTokenURL: 'https://www.tumblr.com/oauth/request_token',
+//   accessTokenURL: 'https://www.tumblr.com/oauth/access_token',
+//   userAuthorizationURL: 'https://www.tumblr.com/oauth/authorize',
+//   consumerKey: process.env.TUMBLR_KEY,
+//   consumerSecret: process.env.TUMBLR_SECRET,
+//   callbackURL: '/auth/tumblr/callback',
+//   passReqToCallback: true
+// },
+// (req, token, tokenSecret, profile, done) => {
+//   User.findById(req.user._id, (err, user) => {
+//     if (err) { return done(err); }
+//     user.tokens.push({ kind: 'tumblr', accessToken: token, tokenSecret });
+//     user.save((err) => {
+//       done(err, user);
+//     });
+//   });
+// }));
+
+/**
+ * Login Required middleware.
+ */
+exports.isAuthenticated = (req, res, next) => {
+  if (req.isAuthenticated()) {
+    return next();
+  }
+  res.redirect('/login');
+};
 
 /**
  * Authorization Required middleware.
