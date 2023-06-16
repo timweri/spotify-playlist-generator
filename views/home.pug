@@ -2,13 +2,15 @@ extends layout
 
 block content
   if !user
-    h1 Please Login through Spotify
+    h1.text-center Please Login through Spotify
   else
-    form
+    form(method="post" action="/api/spotify")
       div.form-group.mb-3
         label.mb-1(for='artistList') Artist List
-        textarea.form-control(id='artistList' rows='10')
+        textarea.form-control(id='artistList' name='artistList' rows='10')
       div.form-group.mb-3
         label.mb-1(for='playlistName') Playlist Name
-        input.form-control(id='playlistName')
-      button.btn.btn-success(type='submit') Submit
+        input.form-control(id='playlistName' name='playlistName')
+      div
+        input(type='hidden', name='_csrf', value=_csrf)
+      button.btn.btn-success(type='submit' value='Submit') Submit

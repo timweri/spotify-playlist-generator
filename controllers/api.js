@@ -13,17 +13,18 @@ const axios = require('axios');
 const { google } = require('googleapis');
 const Quickbooks = require('node-quickbooks');
 const validator = require('validator');
+const SpotifyWebApi = require('spotify-web-api-node');
 
 Quickbooks.setOauthVersion('2.0');
 
 /**
- * GET /api
- * List of API examples.
- */
-exports.getApi = (req, res) => {
-  res.render('api/index', {
-    title: 'API Examples'
-  });
+  * POST /api/spotify
+  * Create Spotify Playlist
+  */
+exports.createSpotifyPlaylist = async (req, res, next) => {
+  const token = await req.user.tokens.find((token) => token.kind === 'spotify');
+  // const client = new SpotifyWebApi();
+  res.status(201).send(token);
 };
 
 /**
