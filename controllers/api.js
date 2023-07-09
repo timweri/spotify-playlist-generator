@@ -23,8 +23,32 @@ Quickbooks.setOauthVersion('2.0');
   */
 exports.createSpotifyPlaylist = async (req, res, next) => {
   const token = await req.user.tokens.find((token) => token.kind === 'spotify');
-  // const client = new SpotifyWebApi();
-  res.status(201).send(token);
+  const client = new SpotifyWebApi({
+    accessToken: token.accessToken,
+  });
+
+  const artistList = req.body.artistList.trim().split(/[\n,]/);
+  if (artistList.length > 5) {
+    return res.status(400).send({
+      message: "Artist list is limited to 5 artists"
+    });
+  }
+
+  const promises = artistList.map(async artist => {
+    return client.searchArtists(artist).then(({body:{artists:{items}}}) => {
+      return items.length > 0 ? items[0] : undefined;
+    });
+  });
+
+  try {
+    const responses = await Promise.all(promises);
+    return res.status(201).send(responses);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).send({
+      message: "Unexpected server error"
+    });
+  }
 };
 
 /**
