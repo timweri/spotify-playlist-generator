@@ -23,31 +23,53 @@ Quickbooks.setOauthVersion('2.0');
   */
 exports.createSpotifyPlaylist = async (req, res, next) => {
   const token = await req.user.tokens.find((token) => token.kind === 'spotify');
+  console.log(token.accessToken);
   const client = new SpotifyWebApi({
     accessToken: token.accessToken,
   });
 
+  const validationErrors = [];
+  if (validator.isEmpty(req.body.artistList)) validationErrors.push({ msg: 'Artist list cannot be empty.' });
+
   const artistList = req.body.artistList.trim().split(/[\n,]/);
-  if (artistList.length > 5) {
-    return res.status(400).send({
-      message: "Artist list is limited to 5 artists"
-    });
+  if (artistList.length > 5) validationErrors.push({ msg: 'Artlist list limit is 5 artists.' });
+  else if (artistList.length == 0) validationErrors.push({ msg: 'Artist list cannot be empty.' }); 
+  
+  if (!validator.isAlphanumeric(req.body.playlistName.trim(), 'en-US', { ignore: '- ' })) {
+    validationErrors.push({ msg: 'Playlist name cannot contain special characters.' });
   }
 
-  const promises = artistList.map(async artist => {
-    return client.searchArtists(artist).then(({body:{artists:{items}}}) => {
-      return items.length > 0 ? items[0] : undefined;
-    });
-  });
+  if (!validator.isInt(req.body.topK.trim(), {min:1, max:10})) {
+    validationErrors.push({ msg: 'Number of top songs must be a number between 1 and 10 (inclusive)' });
+  }
+
+  if (validationErrors.length) {
+    req.flash('errors', validationErrors);
+    return res.redirect('/');
+  }
 
   try {
-    const responses = await Promise.all(promises);
-    return res.status(201).send(responses);
+    const playlistName = req.body.playlistName.trim().replace(/  +/g, ' ');
+    const topK = parseInt(req.body.topK.trim());
+    const artistListPromises = artistList.map(async artist => {
+      return client.searchArtists(artist).then(({body:{artists:{items}}}) => {
+        return items.length > 0 ? items[0] : undefined;
+      });
+    });
+    const artistListData = await Promise.all(artistListPromises);
+    const topTrackPromises = artistListData.map(async artist => {
+      return client.getArtistTopTracks(artist.id, 'CA').then(({body: {tracks}}) => {
+        return tracks.slice(0, topK);
+      });
+    });
+    const topTracks = (await Promise.all(topTrackPromises)).flat();
+    const topTrackNames = topTracks.map(topTrack => topTrack.name);;
+
+    return res.status(201).send(topTrackNames);
   } catch (err) {
     console.error(err);
-    return res.status(500).send({
-      message: "Unexpected server error"
-    });
+    req.flash('errors', [{ msg: 'Unexpected server error' }]);
+    return res.redirect('/');
   }
 };
 
